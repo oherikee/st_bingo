@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bingo Stranger Things</title>
+
+  <!-- SheetJS -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      padding: 16px;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #0b0b0f;
+      color: #e5e5e5;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    h1 {
+      margin-bottom: 12px;
+      letter-spacing: 2px;
+      color: #e50914;
+    }
+
+    input[type="file"] {
+      margin-bottom: 16px;
+      color: #e5e5e5;
+    }
+
+    #bingo {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      width: 100%;
+      max-width: 420px;
+    }
+
+    .cell {
+      padding: 18px 6px;
+      text-align: center;
+      background: #15151d;
+      border: 1px solid #2a2a3a;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    .cell:active {
+      transform: scale(0.96);
+    }
+
+    .cell.marked {
+      background: #e50914;
+      color: #fff;
+      border-color: #ff2a2a;
+    }
+
+    .cell.free {
+      background: #1f1f2e;
+      color: #aaa;
+      font-style: italic;
+    }
+
+    button {
+      margin-top: 16px;
+      padding: 10px 16px;
+      background: #1f1f2e;
+      color: #e5e5e5;
+      border: 1px solid #333;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #2a2a3a;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>BINGO</h1>
+
+  <input type="file" id="fileInput" accept=".xlsx" />
+
+  <div id="bingo"></div>
+
+  <button id="reset">Resetar marcações</button>
+
+  <script>
+    const fileInput = document.getElementById("fileInput");
+    const bingo = document.getElementById("bingo");
+    const resetBtn = document.getElementById("reset");
+
+    let cells = [];
+
+    fileInput.addEventListener("change", e => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+
+      reader.onload = evt => {
+        const data = new Uint8Array(evt.target.result);
+        const workbook = XLSX.read(data, { type: "array" });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+
+        const range = XLSX.utils.decode_range("A2:E6");
+        bingo.innerHTML = "";
+        cells = [];
+
+        for (let r = range.s.r; r <= range.e.r; r++) {
+          for (let c = range.s.c; c <= range.e.c; c++) {
+            const ref = XLSX.utils.encode_cell({ r, c });
+            const value = sheet[ref]?.v ?? "";
+
+            const div = document.createElement("div");
+            div.className = "cell";
+            div.textContent = value;
+
+            div.addEventListener("click", () => {
+              div.classList.toggle("marked");
+              navigator.vibrate?.(30);
+              saveState();
+            });
+
+            bingo.appendChild(div);
+            cells.push(div);
+          }
+        }
+
+        // FREE no centro
+        const center = 12;
+        if (cells[center]) {
+          cells[center].textContent = "FREE";
+          cells[center].classList.add("free", "marked");
+        }
+
+        loadState();
+      };
+
+      reader.readAsArrayBuffer(file);
+    });
+
+    resetBtn.addEventListener("click", () => {
+      cells.forEach(c => c.classList.remove("marked"));
+      localStorage.removeItem("bingo-state");
+    });
+
+    function saveState() {
+      const state = cells.map(c => c.classList.contains("marked"));
+      localStorage.setItem("bingo-state", JSON.stringify(state));
+    }
+
+    function loadState() {
+      const state = JSON.parse(localStorage.getItem("bingo-state") || "null");
+      if (!state) return;
+
+      state.forEach((marked, i) => {
+        if (marked) cells[i]?.classList.add("marked");
+      });
+    }
+  </script>
+
+</body>
+</html>
